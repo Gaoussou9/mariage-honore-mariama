@@ -83,6 +83,8 @@
   /* Galerie */
   .tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:26px 0}
   .tiles div{aspect-ratio:1;border-radius:12px}
+  .tiles a{display:block;aspect-ratio:1;border-radius:12px;overflow:hidden;background:var(--sand)}
+  .tiles img{width:100%;height:100%;object-fit:cover;display:block}
 
   footer{border-top:1px solid var(--line);padding:36px 0 48px;text-align:center}
   footer .mono{font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:28px;color:var(--accent);margin:0}
@@ -333,9 +335,10 @@ const CONFIG = {
       <p class="eyebrow">Souvenirs</p>
       <h2 class="title">La galerie des invités</h2>
       <p style="color:var(--muted);max-width:480px;margin:14px auto 0">Le jour J, scannez le QR code sur votre table et partagez vos photos. Les mariés les garderont toutes.</p>
-      <div class="tiles" aria-hidden="true">
+      <div class="tiles" id="tiles" aria-hidden="true">
         <div style="background:#E9DFC9"></div><div style="background:#D9E3DC"></div><div style="background:#EFE6D2"></div>
       </div>
+      <p id="photo-count" style="margin:-12px 0 18px;font-size:14px;color:var(--muted)"></p>
       <div id="gallery-cta"></div>
     </div>
   </section>
@@ -489,6 +492,30 @@ const CONFIG = {
   $('gallery-cta').innerHTML = C.galerie
     ? `<div class="links"><a class="btn btn-dark" href="${esc(C.galerie)}">Partager mes photos</a><a class="btn btn-outline" href="galerie/">Voir la galerie</a></div>`
     : `<span class="btn btn-outline" aria-disabled="true" style="cursor:default;opacity:.8">La galerie ouvrira le jour du mariage</span>`;
+
+  // Dernières photos des invités, affichées directement dans la section
+  const CLOUD = 'dttnmd38e', TAG = 'mariage', N = 9;
+  let shown = '';
+  async function loadPhotos(){
+    try {
+      const r = await fetch(`https://res.cloudinary.com/${CLOUD}/image/list/${TAG}.json?t=${Date.now()}`);
+      if (!r.ok) return;
+      const d = await r.json();
+      const list = (d.resources || []).sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+      if (!list.length) return;
+      const key = list.slice(0, N).map(p => p.public_id).join('|') + list.length;
+      if (key === shown) return;
+      shown = key;
+      const tiles = $('tiles');
+      tiles.removeAttribute('aria-hidden');
+      tiles.innerHTML = list.slice(0, N).map(p =>
+        `<a href="galerie/" aria-label="Voir la galerie"><img loading="lazy" alt="" src="https://res.cloudinary.com/${CLOUD}/image/upload/c_fill,w_300,h_300,g_auto,q_auto,f_auto/v${p.version}/${esc(p.public_id)}.${esc(p.format)}"></a>`
+      ).join('');
+      $('photo-count').textContent = `${list.length} photo${list.length > 1 ? 's' : ''} partagée${list.length > 1 ? 's' : ''} par les invités`;
+    } catch (e) { /* on garde les tuiles décoratives */ }
+  }
+  loadPhotos();
+  setInterval(loadPhotos, 60000);
 })();
 </script>
 </body>
