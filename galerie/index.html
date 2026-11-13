@@ -88,7 +88,7 @@
     try {
       let LIST = [];
       try {
-        const res = await fetch(`https://res.cloudinary.com/${CLOUD}/image/list/${TAG}.json?t=${Date.now()}`);
+        const res = await fetch(`https://res.cloudinary.com/${CLOUD}/image/list/${TAG}.json`, { cache: "no-store" });
         if (res.ok) LIST = (await res.json()).resources || [];
       } catch (e) {}
       const recent = (() => { try { const now = Date.now(); return JSON.parse(localStorage.getItem('mariage_recent') || '[]').filter(x => now - x.t < 3 * 3600e3); } catch (e) { return []; } })();
