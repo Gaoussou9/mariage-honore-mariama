@@ -498,10 +498,15 @@ const CONFIG = {
   let shown = '';
   async function loadPhotos(){
     try {
-      const r = await fetch(`https://res.cloudinary.com/${CLOUD}/image/list/${TAG}.json?t=${Date.now()}`);
-      if (!r.ok) return;
-      const d = await r.json();
-      const list = (d.resources || []).sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+      let LIST = [];
+      try {
+        const r = await fetch(`https://res.cloudinary.com/${CLOUD}/image/list/${TAG}.json?t=${Date.now()}`);
+        if (r.ok) LIST = (await r.json()).resources || [];
+      } catch (e) {}
+      const recent = (() => { try { const now = Date.now(); return JSON.parse(localStorage.getItem('mariage_recent') || '[]').filter(x => now - x.t < 3 * 3600e3); } catch (e) { return []; } })();
+      const known = new Set(LIST.map(p => p.public_id));
+      recent.forEach(x => { if (!known.has(x.public_id)) LIST.push(x); });
+      const list = LIST.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
       if (!list.length) return;
       const key = list.slice(0, N).map(p => p.public_id).join('|') + list.length;
       if (key === shown) return;

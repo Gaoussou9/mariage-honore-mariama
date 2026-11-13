@@ -97,6 +97,7 @@ const CONFIG = {
     <div class="ok" id="ok" role="status">
       <h2>Merci !</h2>
       <p id="ok-txt"></p>
+      <div class="grid" id="sent" style="margin:0 0 16px"></div>
       <button class="btn" id="again" type="button">Envoyer d'autres photos</button>
       <a href="../galerie/" style="display:inline-block;margin-top:14px;color:#1F4D3A;font-weight:600">Voir toutes les photos</a>
     </div>
@@ -139,6 +140,17 @@ const CONFIG = {
     items.push({ file, el, bar, badge, state: 'todo' });
   }
 
+  // Garde les photos envoyées depuis ce téléphone, pour les montrer tout de suite sur le site
+  function remember(rec){
+    try {
+      const k = 'mariage_recent';
+      const now = Date.now();
+      const list = JSON.parse(localStorage.getItem(k) || '[]').filter(x => now - x.t < 3 * 3600e3);
+      list.push(Object.assign({ t: now }, rec));
+      localStorage.setItem(k, JSON.stringify(list.slice(-50)));
+    } catch (e) {}
+  }
+
   function refresh(){
     const todo = items.filter(i => i.state !== 'done').length;
     $('send').disabled = busy || todo === 0 || !C.cloudName || !C.uploadPreset;
@@ -176,7 +188,7 @@ const CONFIG = {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', `https://api.cloudinary.com/v1_1/${encodeURIComponent(C.cloudName)}/image/upload`);
       xhr.upload.onprogress = (e) => { if (e.lengthComputable) it.bar.style.width = (e.loaded / e.total * 100) + '%'; };
-      xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error(xhr.status));
+      xhr.onload = () => { if (xhr.status >= 200 && xhr.status < 300) { let r = {}; try { r = JSON.parse(xhr.responseText); } catch (e) {} resolve(r); } else reject(new Error(xhr.status)); };
       xhr.onerror = () => reject(new Error('réseau'));
       xhr.send(fd);
     });
@@ -195,7 +207,8 @@ const CONFIG = {
       it.el.classList.remove('err'); it.badge.textContent = '';
       try {
         const blob = await shrink(it.file);
-        await upload(it, blob, nom);
+        const r = await upload(it, blob, nom);
+        if (r && r.public_id) remember({ public_id: r.public_id, version: r.version, format: r.format || 'jpg', created_at: r.created_at || new Date().toISOString(), context: { custom: { invite: nom } } });
         it.state = 'done'; it.el.classList.add('done'); it.badge.textContent = '✓'; ok++;
       } catch (err) {
         it.state = 'err'; it.el.classList.add('err'); it.badge.textContent = '!'; ko++;
@@ -206,7 +219,9 @@ const CONFIG = {
     if (ko === 0) {
       $('form').style.display = 'none';
       $('ok').style.display = 'block';
-      $('ok-txt').textContent = `${total} photo${total > 1 ? 's' : ''} envoyée${total > 1 ? 's' : ''} aux mariés.`;
+      $('ok-txt').textContent = `${total} photo${total > 1 ? 's' : ''} envoyée${total > 1 ? 's' : ''} aux mariés. Elle${total > 1 ? 's' : ''} apparaîtr${total > 1 ? 'ont' : 'a'} dans la galerie pour tous d'ici une minute ou deux.`;
+      const sent = $('sent'); sent.textContent = '';
+      items.filter(i => i.state === 'done').forEach(i => { const d = document.createElement('div'); d.className = 'item'; const im = document.createElement('img'); im.alt = ''; im.src = i.el.querySelector('img').src; d.appendChild(im); sent.appendChild(d); });
     } else {
       $('status').textContent = `${ok} envoyée${ok > 1 ? 's' : ''}, ${ko} en échec. Vérifiez votre connexion puis appuyez à nouveau sur Envoyer.`;
       refresh();
