@@ -487,7 +487,7 @@ const CONFIG = {
 
   // Galerie
   $('gallery-cta').innerHTML = C.galerie
-    ? `<a class="btn btn-dark" href="${esc(C.galerie)}" target="_blank" rel="noopener">Partager mes photos</a>`
+    ? `<div class="links"><a class="btn btn-dark" href="${esc(C.galerie)}">Partager mes photos</a><a class="btn btn-outline" href="galerie/">Voir la galerie</a></div>`
     : `<span class="btn btn-outline" aria-disabled="true" style="cursor:default;opacity:.8">La galerie ouvrira le jour du mariage</span>`;
 })();
 </script>
