@@ -1,0 +1,41 @@
+name: Liste des photos des invités
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/photos.yml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: photos
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Récupère la liste des photos sur Cloudinary
+        run: |
+          if ! curl -fsS "https://res.cloudinary.com/dttnmd38e/image/list/mariage.json?t=$(date +%s)" -o new.json; then
+            echo '{"resources":[]}' > new.json
+          fi
+          python3 - <<'PY'
+          import json
+          d = json.load(open('new.json'))
+          json.dump({"resources": d.get("resources", [])}, open('photos.json', 'w'), ensure_ascii=False, separators=(',', ':'))
+          PY
+          rm new.json
+      - name: Publie la liste si elle a changé
+        run: |
+          if git diff --quiet photos.json; then echo "Aucun changement"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add photos.json
+          git commit -m "Met à jour la liste des photos"
+          git push
